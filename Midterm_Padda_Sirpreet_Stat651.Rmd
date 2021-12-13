@@ -1,0 +1,516 @@
+---
+title: "MIDTERM_PADDA_SIRPREET_STAT651"
+output:
+  flexdashboard::flex_dashboard:
+    storyboard: true
+    social: menu
+    source: embed
+---
+
+### Title Page: Title page covers some general information.
+
+**EXAM:      MIDTERM EXAM STAT 651**    
+
+**Professor: Dr.Joshua Kerr**
+
+**Dataset:   Restaurant Scores - LIVES Standard**   
+
+**Made by:   Sirpreet Padda**
+
+**Course:    STAT 651**
+
+**Semester:  Fall 2021**
+
+**Date:      11/21/2021**
+
+
+
+
+
+### Table of contents: The table of contents covers Introduction, codebook, data exploration, plot a, plot b, plot c, plot d, and conclusion.
+|Title    | Description|
+|------------ | -----------|
+| Introduction   | A brief introduction about the data set.|
+| Codebook  |	A description of each variable.|
+| Data Exploration  |	Data exploration includes the Bar chart,correlation matrix plot, box whisker plot. |
+| Plot A   | Visualization with leaflet package.|
+| Plot B| Visualization with ggmap package.|
+| Plot C| Visualization with sf package.|
+| Plot D| Visualization with heatmaply package.|
+| Conclusion| A detailed conclusion.|
+| References| References.|
+
+### Introduction: The introduction covers a detailed explanation about the dataset and provides the objective of the report.
+
+DataSF is a web portal that is administered and managed by the government of San Francisco. When visiting the web portal, one can choose data from a variety of categories. The Restaurant Scores-LIVES Standard data set belongs to the Health and Social Services category, it is utilized in this report.The dataset was developed on October 28, 2015. The site reports it is updated daily and reflects true figures, however, the dataset used in this report was updated October 04, 2016 through November 28, 2019. To provide relevant data, this report filters data from January 01, 2018 through November 28, 2019.  The data set consists of 53.9K rows and 22 columns. Although only selected key variables are considered for the report, all variables are described in the codebook.  Albeit entitled "Restaurant Scores..." the dataset includes restaurants, fast food chains, grocery stores, and other food-related establishments. San Francisco's LIVES restaurant inspection data leverages the LIVES Flattened Schema and cited on Yelp's website.
+
+More than half of all Americans are regular restaurant goers. Furthermore, many companies use catering with food retailers for meetings, potlucks and other employee related events. Unfortunately, some food establishments cut corners on maintenance to keep up with sales. According to the Centers for Disease Control and Prevention (CDC), food-borne infections are triggered by impure and unclean food provided at food retailers, resulting in a significant threat to people's health. The CDC reports that 1 in 6 Americans get sick from food-borne illnesses, and 3,000 Americans die from it. Additionally, food borne illness cost the United States more than 15 billion a year. Thus, for the public's well-being, regular inspection is required, and is carried out by the health department. Based on the violations detected, the health inspector assigns an inspection score. Violations are categorized into three risk levels: high risk, moderate risk, and low risk. Violations and high/moderate risk levels are linked to higher incidence and likelihood of food-borne viruses.
+
+After giving considerable thought to food-borne disease risks, I decided to use this dataset to investigate all of San Francisco's food establishments that violated the standards. I chose to use interactive plots to visualize these restaurant businesses. The report's primary goal is to provide the reader with a reasonable amount of information in terms of narrative and visualization. Furthermore, this report will provide a realistic picture of San Francisco's restaurants.
+
+After closely examining the dataset, I explored a variety of intriguing variables, including inspection score, inspection type, risk categories, business names, business addresses, and so on. What I hope to accomplish is that by using various interactive packages, the true picture of San Francisco based restaurants involved in violations are well visualized and will guide the user to make informed decisions when it comes to choosing personal or business related food endeavors.
+
+
+### The codebook shows important variables along with their names and descriptions.
+
+Table : Important variables in the codebook.
+
+|Variables    | Description|
+|------------ | -----------|
+| business_id    | Unique identifier of the business. For many cities, this may be the license number.|
+| business_name  |	Common name of the business.|
+| business_address   | Street address of the business.|
+| business_city| City of the businesses.|
+| business_state| State or province for the business. In the U.S. this should be the two-letter code for the state.|
+| business_postal_code    | Zip code or other postal code.|
+| business_latitude        | Latitude of the business. This field must be a valid WGS 84 latitude.|
+| business_longitude   | Longitude of the business. This field must be a valid WGS 84 latitude.|
+| business_location       | Location of the business.|
+| business_phone_number   | Phone number for a business including country specific dialing information.|
+| inspection_id      | Unique value for each individual inspection.|
+| inspection_date      | Date of the inspection in YYYYMMDD format.|
+| inspection_score     | Inspection score on a 0-100 scale. 100 is the best score.|
+| inspection_type    | String representing the type of inspection, such as: initial, routine, followup, complaint, so on.|
+| violation_id       | Unique code for the violation based on the FDA food codes.|
+| violation_description     | Single line description containing details on the outcome of an inspection.|
+| risk_category    | Types of risks includes high, moderate and low risks.|
+
+```{r include=FALSE}
+# Load all of the necessary libraries.
+pacman::p_load(readr, tidyverse,ggmap,flexdashboard,leaflet,plotly, heatmaply,sf,ggspatial,DT,png, colorspace)
+```
+
+```{r include=FALSE}
+# Load the dataset.
+Restaurant_Scores <- read_csv("~/Desktop/Restaurant_Scores_-_LIVES_Standard.csv")
+# Use a head() function to extract first six rows of the dataset.
+head(Restaurant_Scores)
+```
+
+```{r include=FALSE}
+# Create a variable named restaurant scores that includes 
+# the Restaurant scores-Lives Standards dataset's pipelines.
+restaurant_scores <-  Restaurant_Scores %>%
+  
+                      # To choose desired columns, use the select() function.
+                      select(business_name,business_address,business_city,
+                             business_state,business_postal_code,risk_category, 
+                             inspection_score, violation_description, 
+                             Neighborhoods, inspection_date) %>%
+  
+                      # Filter the variables using the filter() function to 
+                      # exclude na values.
+                      filter(!is.na(business_postal_code), 
+                             is.na(risk_category) == FALSE, 
+                             !is.na(inspection_score), 
+                             !is.na(Neighborhoods),!is.na(inspection_date)) %>%
+                       
+                        # To modify the inspection data column, 
+                        # use the mutate() function.
+                        mutate(inspection_date = 
+                                 lubridate::mdy_hms(inspection_date)) %>%
+  
+                        # To filter the dates from January 1, 2018, 
+                        #  use the filter() function.
+                        filter(inspection_date >= "2018-01-01")
+  
+          
+
+# Create a variable named rest that combines the segments of the addresses.
+rest <- paste(restaurant_scores$business_address, 
+              restaurant_scores$business_city, restaurant_scores$business_state)
+
+# Create a new variable named address that holds all of the address information.
+restaurant_scores$address <- as.character(paste(rest, 
+                            restaurant_scores$business_postal_code, sep = " ,"))
+```
+
+
+
+
+```{r include=FALSE}
+# To enable for repeatable analysis, set the seed to lock the pseudo-random generator.
+set.seed(600)
+# Draw a random sample of size one hundred and fifty from the real dataset. 
+# Random sampling avoids bias and assures a true representation of the population.
+rest_Scores <- restaurant_scores[sample(nrow(restaurant_scores), 150), ] 
+```
+
+### Data exploration is the initial step in data analysis. Data exploration covers the bar chart, correlation matrix plot, and box whisker plot.
+```{r}
+# To make an interactive bar chart, use the ggplotly() function, 
+# which wraps the ggplot extensions.
+ggplotly(ggplot(data = rest_Scores[1:60,],aes(x = business_name, y= inspection_score)) + 
+           geom_col(col = "blue") + theme(text = element_text(angle = 90, hjust= 1), 
+                              plot.title = element_text(hjust = 0.5)) + 
+     labs(title = "<b>Bar Chart of Food Establishments in San Francisco<b>", 
+          x = "<b>Business Names<b>", y = "<b>Inspection Scores<b>"))
+```
+***
+- The bar chart depicts the real picture of sixty food retailers in San Francisco chosen at random that breached the LIVES Standards. The scores were computed by the health inspector based on the violations recorded. The inspection results were graded on a scale of 0 to 100. On the y-axis of the bar chart, a variable called inspection scores is a prominent component in the dataset. 
+
+- Plotly also added interactive features to the bar chart. When hovering over the bar chart, the actual score of each food retailer is displayed. Additionally, after testing different random samples, I set the seed to 600 to provide a quality sample for reproducibility and visualization purposes. 
+
+### Correlation Matrix Plot: The Correlation Matrix Plot shows either a positive or negative association among selected variables. 
+```{r}
+# Initialize a variable called rest_Scores1.Rest scores1 is the name of the data matrix 
+# created by converting the data frame rest scores to a data matrix.
+rest_Scores1 <- data.matrix(rest_Scores[ ,c(1,2,5:10)])
+
+# To illustrate relationship among variables, use the heatmaply cor() function.
+heatmaply_cor(cor(rest_Scores1),xlab = "<b>Features</b>",
+  ylab = "<b>Features</b>", main = "<b>Correlation Matrix Plot</b>",
+  k_col = 2,
+  k_row = 2, key.title = "<b>Scale</b>")
+```
+***
+- The correlation matrix shows whether variables are positively or negatively correlated.  The correlation coefficients are colored based on the value indicated in the legend scale on the right. A dendrogram is a tree diagram that depicts the relationship between variables in a dataset that are similar and distinct.  The order of the rows and columns is heavily reliant on the hierarchical cluster analysis. Variables that have commonalities are grouped together. The dendrogram is set up in such a way that the different heights of clusters represent a greater distance between them. Hovering the cursor over the correlation plot matrix reveals more details regarding the positive or negative correlation.
+
+
+### Box Plot : Box and whisker plot (Box Plot) shows the distribution of data through their quartiles. These distributions are classified into three types of risk categories in the box plot. 
+```{r}
+# Use the ordered() function in R to change the order of the 
+# risk categories variable in the data frame restaurant scores.
+restaurant_scores$risk_category <- ordered(restaurant_scores$risk_category,
+                                  levels=c("High Risk","Moderate Risk", 
+                                           "Low Risk"))
+
+# Create a variable called p containing a global statement and ggplot extensions.
+p <- ggplot(restaurant_scores, aes(x = risk_category, y = inspection_score, 
+                                   fill = risk_category)) + 
+  
+  # Use geom_box() function to generate box and whisker plot.
+  geom_boxplot(outlier.colour = "red", na.rm = TRUE) + 
+  
+  # To keep the x-axis, y-axis, and title bold, use the theme() function.
+  theme(axis.title.x = element_text(face = "bold"),
+        axis.title.y = element_text(face = "bold"),
+        title = element_text(face = "bold"),
+        plot.title = element_text(hjust = 0.5)) + 
+  
+  # Use scale_fill_discrete() function to update the name risk categories.
+  scale_fill_discrete(name = "<b>Risk Categories</b>", 
+                      labels = c("High Risk","Moderate Risk","Low Risk")) + 
+  
+  # Use labs() function to set the title, x, and y lab.
+  labs(title = "Box Plot", x = "Risk Categories", y = "Inspection Scores")
+
+# Use the ggplotly() function. Pass an argument called p.
+ggplotly(p)
+```
+***
+- The boxplot displays a graphical representation of the concentration of observations in the dataset centered on the three risk categories. The potential outliers are the black dots below the lower whisker (Q1-1.5*IQR) of the interquartile range (IQR). In addition, the boxplot depicts the shape of the data set as well as how the values in the data spread out. The position of the median value in the box plot indicates whether the distribution is skewed left (negatively skewed) or right (positively skewed). 
+
+- The distributions in the high, moderate and low-risk categories are slightly skewed to the left. The IQR is the most noteworthy aspect in the high-risk category; a higher range in the high-risk category reflects a wider distribution. Most of the observations in the boxplot are above the inspection score of 80. The whiskers are the extended parallel lines that reflect variability outside the Q3 (third) and Q1 (first) quartiles. When the user hovers the cursor over the box plot, it displays additional information such as the minimum value (lower whisker), Q1 (25th percentile), median (50th percentile), Q3 (75th percentile), and maximum value (upper whisker).
+
+
+
+### Plot A : Plot A uses a leaflet package to visualize the business names, violation descriptions, and addresses of the food establishments on the San Francisco map.
+```{r include=FALSE}
+# To determine the actual locations of food establishments in San Francisco, 
+# use the geocode function from the ggmap package. Assign variable a name Geo.
+Geo <- geocode(location  = rest_Scores$address[1:150])
+```
+
+```{r}
+# Make a new variable named Rest map to hold the pipeline of leaflet extensions.
+Rest_map <- leaflet() %>% 
+            # By default, the addTiles() function adds a base tiled map.
+            addTiles() %>%
+  
+            # Use addProviderTiles() function to add a tile layer 
+            # from a known map provider.
+            addProviderTiles("Esri.WorldImagery", group = "Satellite") %>%
+            addProviderTiles("Stamen.TonerLite", group = "Toner Lite") %>%
+            addProviderTiles("OpenStreetMap", group = "Street Map") %>%
+  
+            # Use addMarkers() function to add markers to the map.
+            addMarkers(lng = ~Geo$lon, lat = ~Geo$lat, data = rest_Scores, 
+                     popup = ~violation_description, group = "violation_description",
+                     icon = list(iconUrl = "https://img.icons8.com/color/48/000000/error--v1.png",
+                     iconSize = c(20, 20))) %>% 
+  
+            # To add markers to the map, use the addMarkers() function.
+            addMarkers(lng = ~Geo$lon, lat = ~Geo$lat, data = rest_Scores, 
+                     popup = ~business_name, group = "business_name",
+                     icon = list(iconUrl = "https://img.icons8.com/plasticine/100/000000/small-business.png",
+                     iconSize = c(20, 20))) %>%
+
+            # Use addCircles(), which includes the information to be pulled in 
+            # for the popup and the color to be used.
+            addCircles(lng = ~Geo$lon, lat = ~Geo$lat, data = rest_Scores,
+                       weight = 10, popup = ~address, group = "address") %>%
+  
+            # To allow users to select from a variety of base layers and 
+            # any number of overlay layers to view by calling addLayersControl().
+            addLayersControl(
+            baseGroups = c("Satellite", "Toner Lite","Street Map"),
+            overlayGroups = c("violation_description", "business_name", "address")) 
+
+# Call an object called Rest_map.
+Rest_map
+```
+***
+
+- Using the leaflet package, Plot A depicts the visualization of food retailers in San Francisco that violated the LIVES Standards. The leaflet package includes a dynamic map with zooming capabilities as well as additional features like markers and circles. The user can choose from three different mapping styles: "Satellite," "Toner Lite," or "Open Street Map." Hovering over the square symbol in the right-hand corner of the leaflet map also gives the viewer more information about markers that directly correspond to dataset features like violation descriptions, business addresses, and business names. With a single tap on the leaflet map, the user can zoom in and out several times. 
+
+- The leaflet map incorporates key elements such as violation descriptions, business names, and business addresses to address food retailers that have violated lives standards, along with descriptions of violations and their locations. The list of violations alludes to the risks of food-borne diseases. The interactive visualization depicts the comprehensive view of the violations in San Francisco.
+
+
+```{r include=FALSE}
+# To find the bounding box, we must first specify the variables max_lon, 
+# max_lat, min_lon, and min_lat.
+max_lon <- which.max(Geo$lon)
+max_lat <- which.max(Geo$lat)
+min_lon <- which.min(Geo$lon)
+min_lat <- which.min(Geo$lat)
+
+# Append the min_lon, min_lat, max_lon, and max_lat variables into a new variable named get values.
+get_values <- c(min_lon,min_lat,max_lon, max_lat)
+
+# Create a new variable called Map to hold information about the longitude and latitude coordinates. 
+# Geo has been invoked as a predefined variable.
+Map <- c(Geo$lon[min_lon],	Geo$lat[min_lat],Geo$lon[max_lon], Geo$lat[max_lat])
+
+# Create a new variable called sf map to load the San Francisco map.
+sf_map <- get_map(location = Map, source  = "google", maptype = "satellite")
+```
+
+### Plot B: Plot B uses the ggmap package to visualize the randomly selected businesses categorized into three types of risk categories on the San Francisco map.
+```{r}
+# Use the ordered() function in base R to change the order of 
+# the risk categories variable in the data frame rest_Scores.
+rest_Scores$risk_category <- ordered(rest_Scores$risk_category,
+                            levels=c("High Risk","Moderate Risk", "Low Risk"))
+
+# Add two new variables: long and lat.
+long <- Geo$lon
+lat  <- Geo$lat
+
+# Add a variable called g that contains the ggmap and ggplot extensions.
+g <- ggplotly(ggmap(sf_map, extent = "normal") +  
+                
+                # To draw polygons and link the starting and ending points, 
+                # use geom polygon().
+                geom_polygon(data = rest_Scores, aes(x = long, y = lat),
+                             fill = "#00FFFFFF" ,size = .2, color = "green", 
+                             alpha = 0.2) +
+                
+                # Use geom_point() function to plot points on the map.
+                geom_point(data = rest_Scores, aes(x = long, y = lat, 
+                                                   col = business_name)) + 
+                
+                # To change the colors of the business names, 
+                # use scale_color_manual() function.
+                scale_color_manual(name = "<b>Business names</b>",
+                                   values = rainbow_hcl(150)) + 
+                
+                # To give ggmap a title, use the labs() function.
+                labs(title = "<b> Violations of Food Establishments in San Francisco<b>", 
+                     x = "<b>Longitude<b>", y = "<b>Latitude<b>") + 
+                
+                # To edit the x-axis title and legend text, use the theme() function.
+                theme(axis.title.x = element_text(margin = margin(t= 48)),
+                      legend.text = element_text(size =7),
+                      plot.title = element_text(hjust = 0.5)) +
+                
+                # To display facets with risk categories, 
+                # use the facet wrap() function.
+                facet_wrap(~risk_category, nrow= 2, ncol = 2 ))
+
+# Create a rangeslider for the user conveyance using a pipeline with a variable g.
+g %>%
+  layout(xaxis = list(rangeslider = list(thickness = 0.1)),
+         yaxis = list(fixedrange = TRUE)) 
+```
+***
+- Plot B shows how the risk categories were applied to one hundred fifty randomly selected food retailers in San Francisco. High risk, moderate risk, and low risk are the three different forms of risk. The key benefit of combining ggmap and ggplot extensions is that it can simultaneously plot points on the map and display facets. Another interactive way to illustrate the restaurant in San Francisco is to wrap ggmap with plotly. It gives the reader functions such as zooming in and out, dragging up and down as well as left and right, etc. Also, turquoise colored polygons are created in the plot to illustrate the perimeter of the restaurants, which are connected by starting and ending points. The primary goal of categorizing the one hundred fifty restaurants chosen at random into three risk categories is to highlight which food retailers pose a high, moderate, or low risk to public health and safety. These facets give the reader appropriate information.
+
+- The essential aspects of the ggmap, such as risk categories and business names, are taken into account to highlight the risk related to food-borne diseases. The restaurants are classified as a high, moderate, or low danger to public health and safety. Additionally, along with the ggplot2 extensions, ggmap overlays the points on the map, which is a very nice feature. The range slider gives the user the choice to zoom in further based on their preferences. In each facet, the visualization shows the true picture of the restaurants. Each facet contains information about each restaurant as well as its location and risk level.
+
+
+```{r include=FALSE}
+# Create a new variable named Rest_address 
+# that contains the data frame Restaurant Scores.
+Rest_address <- Restaurant_Scores %>%
+                        # To exclude the NA values from the variables, 
+                        # use the filter() function.
+                        filter(!is.na(business_longitude), 
+                               !is.na(business_latitude)) %>%
+  
+                      # Use the st as sf() function to convert a data frame of 
+                      # coordinates into a sf object.
+                       st_as_sf(coords = c("business_longitude", 
+                                           "business_latitude"))
+```
+
+
+```{r include=FALSE}
+# Examine the class of the predefined variable.
+class(Rest_address)
+
+# Set the coordinate reference system to EPSG:4326 by using a st_set_crs() function.
+Rest_address <- st_set_crs(Rest_address, 4326)
+
+# Use the st_is_longlat() function to verify the sf object.
+st_is_longlat(Rest_address)
+
+# Use the st bbox() function to return the bounding box values.
+bboxx <- st_bbox(Rest_address)
+```
+
+```{r include= FALSE}
+# Use a data frame called Rest_address. 
+# Give a new name to variable Rest_address1.
+Rest_address1 <- Rest_address %>%
+  
+               # To choose the desired variables, use the select() function.
+               select(business_name ,geometry, inspection_type, inspection_date) %>%
+  
+               # Change the variable's name by using dplyr package's rename() function.
+               rename(InspectionTypes = inspection_type) %>%
+   
+               # Use a mutate() function to modify the inspection_date column.
+               mutate(inspection_date = lubridate::mdy_hms(inspection_date)) %>%
+  
+               # Use a filter() function to filter the data by inspection_date.
+               filter(inspection_date >= "2018-01-01")
+```
+
+```{r include=FALSE}
+# Use set.seed() function for to reproduce the same result in R.
+set.seed(300)
+
+# To demonstrate a nice representation. 
+# Draw a random sample from the Rest_address1 data frame.
+Rest_address2 <- Rest_address1[sample(nrow(Rest_address1), 35), ]
+```
+
+### Plot C: Plot C uses a simple features (sf) package to visualize the spatial plot of the restaurant violations in San Francisco.
+```{r}
+# Add a variable called g2 that contains the 
+# Rest_address2 data frame's pipeline.
+g2 <- 
+  Rest_address2 %>%
+    # Use ggplot function to initiate a global statement.
+    ggplot() +
+  
+    # Use annotation_map_tile() function to show the points on the desired map type.
+    annotation_map_tile("thunderforestlandscape") + 
+  
+    # To visualize the sf object, use geom Sf () function.
+    geom_sf(aes(col = business_name, size = InspectionTypes),
+          show.legend = "point")  +
+  
+    # To ensure that all layers utilize the same CRS, use coord_Sf () function.
+    coord_sf(xlim = c(bboxx["xmin"],bboxx["xmax "]),
+                  ylim = c(bboxx["ymin "],bboxx["ymax "])) + 
+  
+    # For text annotations, use geom Sf text().
+    geom_sf_text(aes(label = business_name),fontface = "bold", 
+               check_overlap = TRUE, size = 1.7) + 
+    
+    # Use theme() function to adjust the angle and height of x-axis.
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.key.height = unit(0.3, "cm"), 
+          legend.text = element_text(size = 4), legend.position = "left",
+          axis.title.x = element_text(face = "bold"),
+          axis.title.y = element_text(face = "bold"),
+          title = element_text(face = "bold"),
+          plot.title = element_text(hjust = 0.5)) + 
+  
+    # Use the ggtitle() function to give a specific title 
+    # and xlab and ylab for x-axis and y-axis.
+    ggtitle("Spatial Plot") + xlab("Longitude") + ylab("Latitude") + 
+  
+    # Use scale_color_manual() function to 
+    # modify the colors of the business names variable.
+    scale_color_manual(name = 'Business names', 
+                     values = rainbow_hcl(40)) 
+
+# Call an object g2.
+g2
+```
+
+***
+- Plot C uses spatial information on the x and y coordinates to show a spatial plot of randomly selected eateries. The goal of using the spatial plot is to depict San Francisco restaurants based on spatial data using EPSG:4326, a full coordinate reference system (CRS). The unique color of the points relates specifically to the business names, and the spatial plot reflects the size of the point as an inspection type. The reader can concurrently get a tour of inspection types and business names, as well as text annotations. Despite being a static plot, the spatial plot provides the reader with useful information.
+
+- The important components of the spatial plot, such as inspection type and business names, are integrated to address the routine inspection of the food retailers using the spatial plot. The health inspector conducts the routine inspection. Inspection types are pertinent as they are preventative measures for the public's health and safety. As a result, a regular inspection ensures that local food retailers adhere to public health standards.  The visualization vividly demonstrates the reality of the health inspector's inspection of eateries in San Francisco. Each establishment undergoes a different type of inspection.
+
+### Plot D: Plot D uses the heatmaply package to show the heatmap of restaurant violations in San Francisco.
+```{r}
+# Choose randomly selected food establishments to create a nice representation.
+# Give a name data1 data frame.
+data1 <- rest_Scores[1:30,]
+
+# Create an another data frame called data2 which 
+# arrange the violation_description variables. By default is ascending order.
+data2 <- as.data.frame(data1) %>% 
+  arrange(violation_description)
+
+# Assign labels in column 1 to rnames.
+rnames <- data2[,1] 
+# Create a data matrix variable called x.
+# Transform columns (I have) into a matrix
+    x <- data.matrix(data2[,6:8]) 
+    rownames(x) <- rnames 
+   
+
+# Use the heatmaply() function to generate interactive cluster heatmaps.
+heatmaply(x,scale = "none",plot_method = "plotly", xlab = "<b>Features</b>", 
+          ylab = "<b>Restaurants</b>", 
+          main = "<b>Heatmap of Food Establishment Violations</b>", 
+          col = cool_warm(50), k_col = 2, k_row = 2, key.title = "<b>Scale</b>")
+```
+
+****
+- Plot D shows a heatmap of randomly selected food retailers on the y-axis and the key features on the x-axis. The color scale at the bottom of the right-hand corner displays values ranging from 0 to 100. A data matrix is encoded as a grid matrix of colored cells to create the heatmap. The dendrogram shows the pattern as well as the order of the rows and columns. The dendrogram depicts the establishment's similarity and dissimilarity in the data set. Next, when the mouse hovers over a cell, a value is displayed as a grid of colored cells. In the next storyboard, the reader can learn more about the values prescribed in the data table.
+
+
+- The heatmap includes key variables such as inspection score, violation description, and risk categories. The inspection scores, violation descriptions, and risk categories are crucial in demonstrating that the restaurant violated public health and safety standards. On the scale, a perfect score is 100. The heatmap visualization reveals a true picture of the eateries that were chosen at random. Based on the violation descriptions, the heatmap confirms that inspection scores and risk categories are assigned appropriately.
+
+### Description of heatmaply values defined in the preceding storyboard.
+```{r}
+# Extract the variable called violation description.
+Violation_Description <- data2[,8]
+
+# Specify the value of violation description variable.
+Value <- x[,3]
+
+# Use cbind.data.frame() function to combine vectors.
+c1 <- cbind.data.frame(Violation_Description,Value)
+
+# Extract the variable called inspection_Score.
+inspection_Score<- data2[,7]
+
+# Extract the variable called Risk_category.
+Risk_Category <- data2[,6]
+
+# Specify the value of risk category variable.
+Value1 <- x[,1]
+
+# Use cbind.data.frame() function to combine vectors.
+c2 <- cbind.data.frame(Risk_Category,Value1)
+
+# Create a new data frame with the name dat1.
+dat1 <- data.frame(inspection_Score,c1,c2)
+
+# Use DT package and produce the data table.
+datatable(dat1)
+```
+
+
+### Conclusion 
+
+After carefully examining and tidying the dataset, applying interactive packages, and switching significant variables in the plots, the problem of food-borne diseases associated with violations has been emphasized for public health and safety. The visualizations provided support the arguments in each plot, thus presenting a realistic picture of the businesses that violate the Lives Standards. In addition, the interactive plots provide appropriate information to the reader. The visualizations do an excellent job of demonstrating the restaurant violations of the Lives Standards. The report focuses on the most significant variables, such as inspection score, inspection type, risk categories, violation description, business names, and business addresses.
+In conclusion, the report revealed reasonable evidence against the food establishment's violations of the Lives Standard, along with accurate facts and figures in each plot.
+
+### References
+
+- [CDC](https://www.cdc.gov/foodsafety/cdc-and-food-safety.html#:~:text=Foodborne%20illness%20is%20common%2C%20costly,than%20%2415.6%20billion%20each%20year.)
+
+- [Restaurant Scores - Lives Standard](https://data.sfgov.org/Health-and-Social-Services/Restaurant-Scores-LIVES-Standard/pyih-qa8i)
+
+- [Yelp](https://www.yelp.com/healthscores)
+
+
